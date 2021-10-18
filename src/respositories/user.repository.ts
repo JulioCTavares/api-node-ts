@@ -1,5 +1,6 @@
 import db from "../db";
 import User from "../models/user.model";
+import DatabaseError from "../models/error/database.error.model";
 
 
 class UserRepository {
@@ -16,7 +17,7 @@ class UserRepository {
   }
 
   async findById(uuid:string): Promise<User> {
-    const querySearch = `
+   try{ const querySearch = `
       SELECT uuid, username
       FROM application_user
       WHERE uuid = $1
@@ -27,6 +28,9 @@ class UserRepository {
     const [ user ] = rows;
 
     return user;
+  } catch(err){
+     throw new DatabaseError('Could not find user', err)
+    }
   }
 
   async create(user:User): Promise<string> {
@@ -45,6 +49,33 @@ class UserRepository {
     const [newUser] = rows;
 
     return newUser.uuid;
+  }
+
+  async update(user:User): Promise<void> {
+    const script = `
+      UPDATE application_user
+      SET
+        username = $1,
+        password = crypt($2, gen_salt('bf'))
+      WHERE uuid = $3
+    `;
+
+    const values = [ user.username, user.password, user.uuid ];
+
+    await db.query<{uuid: string}>(script, values);
+
+  }
+
+  async remove(uuid: string): Promise<void> {
+    const script = `
+    DELETE
+    FROM application_user
+    WHERE uuid = $1
+    `;
+    
+    const values = [ uuid ];
+
+    await db.query(script, values);
   }
 }
 
